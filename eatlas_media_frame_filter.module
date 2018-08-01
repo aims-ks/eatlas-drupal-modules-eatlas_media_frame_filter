@@ -1,0 +1,853 @@
+<?php
+// $Id$
+/**
+ * This filter module replace JSON image strings
+ * (created by the media module) with a frame
+ * containing the media preview image, description,
+ * attribution and title.
+ * It has to be run before the "Convert Media tags to markup"
+ * filter.
+ */
+
+// Image border width, in pixels, as defined in the CSS.
+// This value is used to calculate the width of the image frame.
+// NOTE: The image frame need a width, for when it's description is
+//     larger than the image.
+// div.wysiwyg-media-file img {
+//     border: 1px solid #CCCCCC;
+// }
+define("EATLAS_MEDIA_FRAME_IMAGE_BORDER", 1);
+
+/**
+ * Implements hook_preprocess_page(&$variables).
+ */
+function eatlas_media_frame_filter_preprocess_page(&$variables) {
+	// Add Drupal custom image styles
+	// image_styles API:
+	//   https://api.drupal.org/api/drupal/modules%21image%21image.module/function/image_styles/7
+	// Drupal constants:
+	//   IMAGE_STORAGE_DEFAULT => Default style (4)
+	//   IMAGE_STORAGE_NORMAL => Custom (1)
+	$drupal_image_styles = image_styles();
+
+	$drupal_custom_image_styles = array();
+	foreach ($drupal_image_styles as $drupal_image_style_id => $drupal_image_style_settings) {
+		if ($drupal_image_style_settings &&
+				isset($drupal_image_style_settings['storage']) &&
+				$drupal_image_style_settings['storage'] === IMAGE_STORAGE_NORMAL) {
+				// Label = settings['label'] OR settings['name'] OR Style ID.
+			$drupal_image_style_label = isset($drupal_image_style_settings['label']) && $drupal_image_style_settings['label'] ? $drupal_image_style_settings['label'] :
+				(isset($drupal_image_style_settings['name']) && $drupal_image_style_settings['name'] ? $drupal_image_style_settings['name'] : $drupal_image_style_id);
+
+			$drupal_custom_image_styles[$drupal_image_style_id] = $drupal_image_style_label;
+		}
+	}
+
+	drupal_add_js(array('eatlas_media_frame_filter' => array('drupal_custom_image_styles' => $drupal_custom_image_styles)), 'setting');
+}
+
+/**
+ * Implements hook_filter_info().
+ */
+function eatlas_media_frame_filter_filter_info() {
+	$filters = array();
+	$filters['eatlas_media_frame_filter'] = array(
+		'title' => t('eAtlas Media frame filter'),
+		'description' => t('Filter that add frame around media elements.'),
+		'prepare callback' => '_eatlas_media_frame_filter_prepare',
+		'process callback' => '_eatlas_media_frame_filter_process',
+		'tips callback' => '_eatlas_media_frame_filter_tips'
+	);
+
+	return $filters;
+}
+
+/**
+ * Implements filter tips callback.
+ * Referenced in the definition of this filter module
+ * Show a help message to the content editor.
+ */
+function _eatlas_media_frame_filter_tips($filter, $format, $long = FALSE) {
+	return t('Media file are displayed within a frame.');
+}
+
+/**
+ * Implements filter process callback
+ * Referenced in the definition of this filter module
+ * Replace JSON image strings (created by the media module)
+ * with a frame around the image, with description,
+ * attribution and title.
+ *
+ * Copied from:
+ *     modules/media/includes/media.filter.inc - media_filter()
+ * Modifications:
+ *     "preg_replace_callback" called function name
+ *         was: media_token_to_markup
+ *         now: _eatlas_media_frame_token_to_markup
+ */
+function _eatlas_media_frame_filter_process($text, $filter) {
+	$text = ' ' . $text . ' ';
+	$text = preg_replace_callback("/(<a[^>]*>)(\[\[[^<]*?\]\])<\/a>/s", '_eatlas_media_frame_linked_frame_token_to_markup', $text); // ADDED
+	$text = preg_replace_callback("/\[\[[^<]*?\]\]/s", '_eatlas_media_frame_token_to_markup', $text); // MODIFIED
+
+	return $text;
+}
+
+function _eatlas_media_frame_linked_frame_token_to_markup($match, $wysiwyg = FALSE) {
+	// $match[0] => The whole matching line
+	// $match[1] => The A tag: <a href="...">
+	// $match[2] => The wiki line: [[{...}]]
+
+	$link = NULL;
+	// Match <a href="..."> OR <a href='...'> 
+	if (preg_match('/href="(.*?)"/', $match[1], $hrefMatch) ||
+			preg_match("/href='(.*?)'/", $match[1], $hrefMatch)) {
+
+		if ($hrefMatch && $hrefMatch[1]) {
+			$link = $hrefMatch[1];
+		}
+	}
+	$target = NULL;
+	// Match <a target="..."> OR <a target='...'> 
+	if (preg_match('/target="(.*?)"/', $match[1], $targetMatch) ||
+			preg_match("/target='(.*?)'/", $match[1], $targetMatch)) {
+
+		if ($targetMatch && $targetMatch[1]) {
+			$target = $targetMatch[1];
+		}
+	}
+
+	$output = _ealtas_media_frame_abstract_token_to_markup(
+			array($match[2]), // The function expect an array
+			$wysiwyg, // Not sure what this parameter do...
+			$link, $target); // The HREF / Target found in the A tag
+
+	return ($output === NULL ? $match[0] : $output);
+}
+
+/**
+ * Copied from:
+ *     modules/media/includes/media.filter.inc - media_token_to_markup()
+ * Modifications:
+ *     "drupal_alter" hook name
+ *         was: media_token_to_markup
+ *         now: _eatlas_media_frame_token_to_markup
+ *     Return statement
+ *         was: return drupal_render($element);
+ *         now: return eatlas_media_frame_decorate($element, $match[0]);
+ */
+function _eatlas_media_frame_token_to_markup($match, $wysiwyg = FALSE) {
+	$output = _ealtas_media_frame_abstract_token_to_markup($match, $wysiwyg);
+
+	return ($output === NULL ? $match[0] : $output);
+}
+
+function _ealtas_media_frame_abstract_token_to_markup($match, $wysiwyg = FALSE, $link = NULL, $target = NULL) { // MODIFIED
+	$settings = array();
+
+	$match = str_replace("[[", "", $match);
+	$match = str_replace("]]", "", $match);
+	$tag = $match[0];
+
+	try {
+		if (!is_string($tag)) {
+			throw new Exception('Unable to find matching tag');
+		}
+
+		$tag_info = drupal_json_decode($tag);
+
+		if (!isset($tag_info['fid'])) {
+			throw new Exception('No file Id');
+		}
+		if (!isset($tag_info['view_mode'])) {
+			// Should we log or throw an exception here instead?
+			// Do we need to validate the view mode for fields API?
+			$tag_info['view_mode'] = media_variable_get('wysiwyg_default_view_mode');
+		}
+
+		$file = file_load($tag_info['fid']);
+		if (!$file) {
+			throw new Exception('Could not load media object');
+		}
+		$tag_info['file'] = $file;
+
+		// Track the fid of this file in the {media_filter_usage} table.
+		media_filter_track_usage($file->fid);
+
+		$attributes = is_array($tag_info['attributes']) ? $tag_info['attributes'] : array();
+		$attribute_whitelist = media_variable_get('wysiwyg_allowed_attributes');
+		$settings['attributes'] = array_intersect_key($attributes, array_flip($attribute_whitelist));
+
+		// Many media formatters will want to apply width and height independently
+		// of the style attribute or the corresponding HTML attributes, so pull
+		// these two out into top-level settings. Different WYSIWYG editors have
+		// different behavior with respect to whether they store user-specified
+		// dimensions in the HTML attributes or the style attribute, so check both.
+		// Per http://www.w3.org/TR/html5/the-map-element.html#attr-dim-width, the
+		// HTML attributes are merely hints: CSS takes precedence.
+		if (isset($settings['attributes']['style'])) {
+			$css_properties = media_parse_css_declarations($settings['attributes']['style']);
+			foreach (array('width', 'height') as $dimension) {
+				if (isset($css_properties[$dimension]) && substr($css_properties[$dimension], -2) == 'px') {
+					$settings[$dimension] = substr($css_properties[$dimension], 0, -2);
+				} elseif (isset($settings['attributes'][$dimension])) {
+					$settings[$dimension] = $settings['attributes'][$dimension];
+				}
+			}
+		}
+
+		if ($wysiwyg) {
+			$settings['wysiwyg'] = $wysiwyg;
+		}
+	}
+	catch (Exception $e) {
+		watchdog('eatlas_media_frame_filter', 'Unable to render media from %tag. Error: %error', array('%tag' => $tag, '%error' => $e->getMessage()));
+		return '';
+	}
+
+	$element = media_get_file_without_label($file, $tag_info['view_mode'], $settings);
+	// Call hook_eatlas_media_frame_token_to_markup
+	drupal_alter('eatlas_media_frame_token_to_markup', $element, $tag_info, $settings); // MODIFIED
+	return eatlas_media_frame_decorate($element, $attributes, $link, $target); // MODIFIED
+}
+
+/**
+ * Return a HTML snipet representing the image inside a frame,
+ * similar to wikipedia, with a description and attribution,
+ * or return NULL.
+ * When NULL is returned, the string that was found in the
+ * document is expected to be returned, so it can be processed by an other filter
+ * (such as the "Convert Media tags to markup" filter).
+ *
+ * **WARNING** This method is used by WYSIWYG module AND by image field
+ *     so wrappers are used to cope with both implementation if a $file.
+ *     (see preview_image in articles & projects)
+ * TODO: Link + Target not enough. Need class, style, id, etc.
+ */
+function eatlas_media_frame_decorate($element, $attributes = NULL, $link = NULL, $target = NULL, $showEnlargeIcon = FALSE) {
+	if (!$element) {
+		return NULL;
+	}
+
+	$fileWrapper = MediaFrameAbstractFileWrapper::getWrapper($element, $attributes);
+	if (!$fileWrapper) {
+		return NULL;
+	}
+
+	// File type other than image (Audio, Video, PDF, etc. => use the preview field)
+	if ($fileWrapper->getType() && $fileWrapper->getType() !== 'image') {
+		$preview = $fileWrapper->getPreview();
+		if (!$preview) {
+			return NULL;
+		}
+		if (isset($element['#file'])) {
+			unset($element['#file']);
+		}
+		$element['#item'] = $preview;
+		$fileWrapper = MediaFrameAbstractFileWrapper::getWrapper($element, $attributes);
+		if (!$fileWrapper) {
+			return NULL;
+		}
+	}
+
+	// Media style; wikipedia, onImage, tile, etc.
+	$mediaStyle = ''; // media_style default value
+	if (isset($attributes) && isset($attributes['media_style'])) {
+		$mediaStyle = $attributes['media_style'];
+	}
+
+	// Link style; magnifier, direct, etc.
+	$mediaLinkStyle = ''; // media_style default value
+	if (isset($attributes) && isset($attributes['media_link'])) {
+		$mediaLinkStyle = $attributes['media_link'];
+	}
+
+	// Image style; thumbnail, medium, large, etc.
+	$imgStyleName = $fileWrapper->getStyleName();
+
+	$cssClass = $fileWrapper->getCssClass();
+	if (!$cssClass) {
+		$cssClass = '';
+	}
+	$cssStyle = $fileWrapper->getCssStyle();
+	$imgAlt = $fileWrapper->getAlt();
+	if (!$imgAlt) {
+		$imgAlt = $fileWrapper->getTitle();
+	}
+
+	$descriptionHidden = $fileWrapper->isDescriptionHidden();
+	$licenseHidden = $fileWrapper->isLicenseHidden();
+
+	// Style used in the Image Gallery
+	if (_eatlas_media_frame_is_gallery_style($mediaStyle)) {
+		// NOTE: 'medium' image style can not be edited; it's always 220px x 220px.
+		//   The frame dimension is set in the module CSS.
+		//   It can be overwriten by the theme if required.
+		$imgStyleName = 'medium';
+	}
+
+	if ($mediaLinkStyle) {
+		$showEnlargeIcon = ($mediaLinkStyle === 'magnifier');
+	} elseif(_eatlas_media_frame_is_wikipedia_style($mediaStyle)) {
+		// Legacy support
+		// Media link style should always have a value ('none' when no link is chosen).
+		// When the media link style is NOT set, that means the image is an old one.
+		$showEnlargeIcon = TRUE;
+	}
+
+	// NOTE: When it is disabled, it is shown as a enlarged
+	//     icon with a lock on it, and it is hidden for
+	//     anonymous users using CSS. 
+	$enlargeIconIsPrivate = FALSE;
+	if ($fileWrapper->isEnlargePrivate()) {
+		$enlargeIconIsPrivate = TRUE;
+	}
+
+
+	// Split styles into categories
+	$frameStyleMap = array();
+	$imageStyleMap = array();
+	$metadataStyleMap = array();
+
+	foreach($cssStyle as $key => $value) {
+		$key = trim($key);
+		$value = trim($value);
+
+		if ($key === 'width') {
+			if (is_numeric($value)) {
+				$value = $value . 'px';
+			}
+			$imageStyleMap[$key] = $value;
+			$metadataStyleMap[$key] = $value;
+		} elseif ($key === 'height') {
+			if (is_numeric($value)) {
+				$value = $value . 'px';
+			}
+			$imageStyleMap[$key] = $value;
+		} else {
+			$frameStyleMap[$key] = $value;
+		}
+	}
+
+	// Serialise styles
+	$frameStyle = '';
+	foreach($frameStyleMap as $key => $value) {
+		$frameStyle .= "$key: $value; ";
+	}
+
+	$imageStyle = '';
+	foreach($imageStyleMap as $key => $value) {
+		$imageStyle .= "$key: $value; ";
+	}
+
+	$metadataStyle = '';
+	foreach($metadataStyleMap as $key => $value) {
+		$metadataStyle .= "$key: $value; ";
+	}
+
+
+	$showMetadata = $fileWrapper->showMetadata();
+
+	$licenseHtml = NULL;
+	if ($showMetadata && !$licenseHidden) {
+		$licenseHtml = _eatlas_media_frame_render_license($fileWrapper, 'small');
+	}
+
+	// URL to the file preview (in the selected style; thumbnail, large, original, etc.), displayed in the rendered page
+	$fileURL = NULL;
+	if ($fileWrapper->getUrl()) {
+		$fileURL = $fileWrapper->getUrl();
+	} else {
+		$fileAbsoluteURL = _eatlas_media_frame_filter_get_image_style_url($fileWrapper->getUri(), $imgStyleName);
+
+		// Relative URL
+		//
+		// NOTE: If absolute URL is used here, the path of the image
+		//   will be set to the URL that was used to generate the cache
+		//   of the node that use the image.
+		// Example: Clicking "Find content" from the Torres Strait website
+		//   after clearing the cache will set the URL to
+		//   Torres Strait host for all images in all nodes listed in
+		//   the "Find content" page, even if the node has nothing to
+		//   do with Torres Strait.
+		$fileURLParts = parse_url($fileAbsoluteURL);
+		$fileURL = 
+			(isset($fileURLParts['path']) ? $fileURLParts['path'] : '') .
+			(isset($fileURLParts['query']) ? '?' . $fileURLParts['query'] : '') .
+			(isset($fileURLParts['fragment']) ? '#' . $fileURLParts['fragment'] : '');
+	}
+
+	// URL to file node
+	$fileNodeURL = url("media/" . $fileWrapper->getFid());
+
+	$imageLink = NULL;
+	$enlargeURL = $fileNodeURL;
+
+	if ($mediaLinkStyle === 'direct' && !$enlargeIconIsPrivate) {
+		$imageLink = $fileNodeURL;
+	} elseif ($link) {
+		$imageLink = $link;
+	}
+
+	$title = NULL;
+	if ($showMetadata && !$descriptionHidden) {
+		$title = $fileWrapper->getTitle();
+	}
+
+	$descriptionPrefix = NULL;
+	$description = NULL;
+	if ($showMetadata && !$descriptionHidden) {
+		$descriptionPrefix = $fileWrapper->getDescriptionPrefix();
+		$description = $fileWrapper->getDescription();
+
+		// Insert the prefix into the description HTML
+		if ($descriptionPrefix && $description) {
+			$description = preg_replace('/^<(.*?)>(.*?)<\/(.*?)>$/s', '<$1>'.$descriptionPrefix.'$2</$3>', $description);
+		}
+	}
+
+	// Injection protection
+	$imgAlt = str_replace('"', '&quot;', $imgAlt);
+	$cssClass = str_replace('"', '&quot;', $cssClass);
+	$frameStyle = str_replace('"', '&quot;', $frameStyle);
+	$imageStyle = str_replace('"', '&quot;', $imageStyle);
+	$metadataStyle = str_replace('"', '&quot;', $metadataStyle);
+	$fileURL = str_replace('"', '&quot;', $fileURL);
+	$imageLink = str_replace('"', '&quot;', $imageLink);
+	$target = str_replace('"', '&quot;', $target);
+	$enlargeURL = str_replace('"', '&quot;', $enlargeURL);
+
+	// NOTE: $description is considered safe; it has been build using the WYSIWYG.
+
+	// NOTE: The variable $variables['element']['#children'] contains
+	//   a preformated HTML img tag, but it do not have proper
+	//   attributes (alt & title are sometime null).
+
+	if (!$mediaStyle) {
+		$preview = "<img " .
+				($imgAlt ? "alt=\"$imgAlt\" " : "") .
+				($cssClass ? "class=\"$cssClass\" " : "") .
+				"style=\"$frameStyle $imageStyle\" " .
+				"typeof=\"foaf:Image\" " . // RDFa annotation, for semantique
+				"src=\"$fileURL\" />";
+
+		if ($showEnlargeIcon && $enlargeURL) {
+			$output = "<div class=\"image\">" .
+					($imageLink ? "<a href=\"$imageLink\"" . ($target ? " target=\"$target\"" : "") . ">" : "") .
+						$preview .
+					($imageLink ? "</a>" : "") .
+					"<div class=\"enlarge" . ($enlargeIconIsPrivate ? " enlarge_disabled" : "") . "\"><a href=\"$enlargeURL\" title=\"Enlarge\"></a></div>" .
+				"</div>";
+		} else {
+			$output = ($imageLink ? "<a href=\"$imageLink\"" . ($target ? " target=\"$target\"" : "") . ">" : "") .
+					$preview .
+				($imageLink ? "</a>" : "");
+		}
+	} elseif (_eatlas_media_frame_is_gallery_style($mediaStyle)) {
+		$output = "<div style=\"$frameStyle\" class=\"$cssClass mediaframe_$mediaStyle wysiwyg-media-file".($showMetadata ? "" : " noMetadata")."\">" .
+					"<div class=\"image\" style=\"background-image: url('" . $fileURL . "')\">" .
+						($imageLink ? "<a href=\"$imageLink\"" . ($target ? " target=\"$target\"" : "") . "></a>" : "") .
+					"</div>" .
+				"</div>";
+	} else {
+		$preview = "<img " .
+				($imgAlt ? "alt=\"$imgAlt\" " : "") .
+				($cssClass ? "class=\"$cssClass\" " : "") .
+				"style=\"$imageStyle\" " .
+				"typeof=\"foaf:Image\" " . // RDFa annotation, for semantique
+				"src=\"$fileURL\" />";
+
+		if ($mediaStyle === 'tile') {
+			$output = "<div style=\"$frameStyle\" class=\"$cssClass mediaframe_$mediaStyle wysiwyg-media-file".($showMetadata ? "" : " noMetadata")."\">" .
+						"<div class=\"image\">" .
+							"<div class=\"image-cell\">" .
+								($imageLink ? "<a href=\"$imageLink\"" . ($target ? " target=\"$target\"" : "") . ">" : "") .
+									$preview .
+								($imageLink ? "</a>" : "") .
+								($showEnlargeIcon && $enlargeURL ? "<div class=\"enlarge" . ($enlargeIconIsPrivate ? " enlarge_disabled" : "") . "\"><a href=\"$enlargeURL\" title=\"Enlarge\"></a></div>" : "") .
+							"</div>" .
+						"</div>" .
+						(
+							$imageLink ?
+							"<a href=\"$imageLink\" class=\"metadata\" style=\"$metadataStyle\"" . ($target ? " target=\"$target\"" : "") . ">" :
+							"<div class=\"metadata\" style=\"$metadataStyle\">"
+						) .
+							($title ? "<div class=\"title\">$title</div>" : "") .
+						($imageLink ? "</a>" : "</div>") .
+					"</div>";
+		} else {
+			$output = "<div style=\"$frameStyle\" class=\"wysiwyg-media-file-wrapper\">" .
+						"<div class=\"$cssClass mediaframe_$mediaStyle wysiwyg-media-file".($showMetadata ? "" : " noMetadata")."\">" .
+							"<div class=\"image\">" .
+								($imageLink ? "<a href=\"$imageLink\"" . ($target ? " target=\"$target\"" : "") . ">" : "") .
+									$preview .
+								($imageLink ? "</a>" : "") .
+								($showEnlargeIcon && $enlargeURL ? "<div class=\"enlarge" . ($enlargeIconIsPrivate ? " enlarge_disabled" : "") . "\"><a href=\"$enlargeURL\" title=\"Enlarge\"></a></div>" : "") .
+							"</div>" .
+							"<div class=\"metadata\" style=\"$metadataStyle\">" .
+								// NOTE: Description needs to be a block element (div) because it contains block elements (p, div, ul, etc.)
+								($title ? "<div class=\"title\">$title</div>" : "") .
+								($description ? "<div class=\"description\">$description</div>" : "") .
+								($licenseHtml ? "<span class=\"license\">$licenseHtml</span>" : "") .
+							"</div>" .
+						"</div>" .
+					"</div>";
+		}
+	}
+
+	// DO NOT let the Media module filter this using its filter
+	//   (i.e. return NULL to let an the other filters manage it).
+	//   The Media module filter calls "drupal_render" which initialised
+	//   the sub_themes too early, which breaks everything...
+
+	return $output;
+}
+
+function _eatlas_media_frame_is_wikipedia_style($mediaStyle) {
+	return startsWith($mediaStyle, 'wikipedia');
+}
+function _eatlas_media_frame_is_gallery_style($mediaStyle) {
+	return $mediaStyle === 'gallery';
+}
+
+function _eatlas_media_frame_render_license($fileWrapper, $mode = NULL) {
+	$license = $fileWrapper->getLicense();
+	// NOTE: HTML is allowed in $customLicense
+	$customLicense = $fileWrapper->getCustomLicense();
+	$attributionNodes = $fileWrapper->getAttribution();
+	// NOTE: HTML is allowed in $attributionText
+	$attributionText = $fileWrapper->getCustomAttribution();
+	$hasAttribution = !empty($attributionNodes) || $attributionText;
+
+	$licenseHtml = NULL;
+	if ($customLicense) {
+		// Custom license...
+		// NOTE: HTML is allowed in $customLicense
+		$licenseHtml .= "<span class=\"verbose\">Licensed under </span><span class=\"custom-licence-name\">$customLicense</span>";
+		if ($hasAttribution) {
+			// ...with attribution
+			$licenseHtml .= " by ";
+		}
+	} elseif ($license) {
+		// The default value is 'nothing'... that's inconsistent and the field can not be edited.
+		if (empty($license) || $license === 'nothing' || $license === 'none') {
+			// Copyrighted...
+			$licenseHtml .= "&copy;";
+			if ($hasAttribution) {
+				// ...with attribution
+				$licenseHtml .= " <span class=\"verbose\">courtesy </span>";
+			} else {
+				// ...without attribution
+				$licenseHtml .= " <span class=\"verbose\">all rights reserved</span>";
+			}
+		} else {
+			// Creative commons...
+			$licenseHtml .= _eatlas_media_frame_get_CC_image_tag($license, $mode);
+			if ($hasAttribution) {
+				// ...with attribution
+				$licenseHtml .= " by ";
+			}
+		}
+	} elseif ($hasAttribution) {
+		// No license with attribution
+		$licenseHtml .= "<span class=\"verbose\">Author: </verbose>";
+	}
+
+	// Attribution, with or without link / with or without license
+	if ($hasAttribution) {
+		$separator = '';
+		if (!empty($attributionNodes)) {
+			$previousNode = NULL;
+			foreach($attributionNodes as $attributionNode) {
+				$nodeUrl = str_replace('"', '&quot;', url('node/' . $attributionNode->nid));
+				$nodeHtml = NULL;
+				if ($previousNode !== NULL && $previousNode->type === 'person' && ($attributionNode->type === 'organisation' || $attributionNode->type === 'organisation_section')) {
+					$name = $attributionNode->title;
+					if (isset($attributionNode->field_abbr) && isset($attributionNode->field_abbr[LANGUAGE_NONE]) && isset($attributionNode->field_abbr[LANGUAGE_NONE][0])) {
+						if (isset($attributionNode->field_abbr[LANGUAGE_NONE][0]['safe_value'])) {
+							$name = $attributionNode->field_abbr[LANGUAGE_NONE][0]['safe_value'];
+						} else if (isset($attributionNode->field_abbr[LANGUAGE_NONE][0]['value'])) {
+							$name = $attributionNode->field_abbr[LANGUAGE_NONE][0]['value'];
+						}
+					}
+					$nodeHtml = ' (<a href="' . $nodeUrl . '">' . htmlspecialchars($name) . '</a>)';
+				} else {
+					$nodeHtml = $separator . '<a href="' . $nodeUrl . '">' . htmlspecialchars($attributionNode->title) . '</a>';
+					$separator = ', ';
+				}
+				$licenseHtml .= $nodeHtml;
+				$previousNode = $attributionNode;
+			}
+		}
+		if ($attributionText) {
+			// NOTE: HTML is allowed in $attributionText
+			$licenseHtml .= $separator . $attributionText;
+			$separator = ', ';
+		}
+	}
+
+	return $licenseHtml;
+}
+
+/**
+ * Return a license image, linked to it's license web page.
+ * NOTE: The license link are hardcodded. It would be nice
+ *     to add those link in the module configuration.
+ */
+function _eatlas_media_frame_get_CC_image_tag($license, $mode = NULL) {
+	$ccImgFolder = '/' . drupal_get_path('module', 'eatlas_media_frame_filter') . '/img/license';
+	$image = NULL;
+	switch ($mode) {
+		case 'small':
+			$image = $ccImgFolder . '/cc.png';
+			break;
+		case 'medium':
+		default:
+			switch ($license) {
+				case 'cc_nc': $image = $ccImgFolder . '/CC_By_Nc.png';
+					break;
+				case 'cc_nd_nc': $image = $ccImgFolder . '/CC_By_Nc_Nd.png';
+					break;
+				case 'cc_sa_nc': $image = $ccImgFolder . '/CC_By_Nc_Sa.png';
+					break;
+				case 'cc_nd': $image = $ccImgFolder . '/CC_By_Nd.png';
+					break;
+				case 'cc_sa': $image = $ccImgFolder . '/CC_By_Sa.png';
+					break;
+				case 'cc':
+				default: $image = $ccImgFolder . '/CC_By.png';
+					break;
+			}
+			break;
+	}
+
+	switch ($license) {
+		case 'cc_nc': return "<a href=\"http://creativecommons.org/licenses/by-nc/3.0/au/\" target=\"_blank\"><img class=\"cc\" src=\"$image\" alt=\"CC BY NC\" /></a>";
+		case 'cc_nd_nc': return "<a href=\"http://creativecommons.org/licenses/by-nc-nd/3.0/au/\" target=\"_blank\"><img class=\"cc\" src=\"$image\" alt=\"CC BY NC ND\" /></a>";
+		case 'cc_sa_nc': return "<a href=\"http://creativecommons.org/licenses/by-nc-sa/3.0/au/\" target=\"_blank\"><img class=\"cc\" src=\"$image\" alt=\"CC BY NC SA\" /></a>";
+		case 'cc_nd': return "<a href=\"http://creativecommons.org/licenses/by-nd/3.0/au/\" target=\"_blank\"><img class=\"cc\" src=\"$image\" alt=\"CC BY ND\" /></a>";
+		case 'cc_sa': return "<a href=\"http://creativecommons.org/licenses/by-sa/3.0/au/\" target=\"_blank\"><img class=\"cc\" src=\"$image\" alt=\"CC BY SA\" /></a>";
+		case 'cc':
+		default: return "<a href=\"http://creativecommons.org/licenses/by/3.0/au/\" target=\"_blank\"><img class=\"cc\" src=\"$image\" alt=\"CC BY\" /></a>";
+	}
+}
+
+/**
+ * Styles that should apply to the frame.
+ */
+function _eatlas_media_frame_is_frame_style($key, $mediaStyle) {
+	if (!$mediaStyle) {
+		return FALSE;
+	}
+
+	// height is allowed only in 'gallery' style.
+	if ($key === 'height') {
+		return _eatlas_media_frame_is_gallery_style($mediaStyle);
+	}
+
+	return $key === 'width' ||
+		$key === 'float' ||
+		$key === 'border' ||
+		startsWith($key, 'margin') ||
+		startsWith($key, 'padding');
+}
+
+
+/**
+ * Styles that should apply to the image.
+ * NOTE: Borders are managed by the theme style sheet,
+ *     not the CKEditor values.
+ */
+function _eatlas_media_frame_is_image_style($key, $mediaStyle) {
+	if (!$mediaStyle) {
+		return TRUE;
+	}
+
+	return $key === 'width' || $key === 'height' || // width goes in both
+		(
+			!startsWith($key, 'border') &&
+			!_eatlas_media_frame_is_frame_style($key, $mediaStyle)
+		);
+}
+
+// startsWith
+// http://www.php.net/manual/en/function.strncmp.php
+// strncmp: Returns < 0 if str1 is less than str2; > 0 if str1 is greater than str2, and 0 if they are equal.
+if (!function_exists('startsWith')) {
+	function startsWith($haystack, $needle) {
+		return !strncmp($haystack, $needle, strlen($needle));
+	}
+}
+
+/**
+ * Used in templates/page--mediaframe-fileinfo.tpl.php
+ */
+function _eatlas_media_frame_getLabeledAttribute($label, $value, $encoded = FALSE) {
+	$output = '<p';
+	if (!$value) {
+		$output .= ' class="undefined"';
+	}
+	$output .= '>';
+
+	$output .= "<label>$label</label> ";
+	$output .= '<span class="value">';
+	if ($value) {
+		$output .= $encoded ? htmlspecialchars($value, ENT_QUOTES, 'UTF-8') : $value;
+	} else {
+		$output .= 'Undefined</span>';
+	}
+	$output .= '</span>';
+	$output .= '</p>';
+
+	return $output;
+}
+
+
+
+/**
+ * The followind functions are used to create the "eatlas_mediaframe_fileinfo"
+ * service.
+ * URL:
+ *     http://<server>/?q=eatlas_mediaframe_fileinfo/<fid>
+ * Display:
+ *     The page display some file information.
+ * Usage:
+ *     It is used in the "Frame info" tab of CKEditor "image property"
+ *     dialog window, to show the actual value for the media file.
+ * Templates:
+ *     modules/eatlas_media_frame_filter/templates/html--mediaframe-fileinfo.tpl.php
+ *     modules/eatlas_media_frame_filter/templates/page--mediaframe-fileinfo.tpl.php
+ *     modules/eatlas_media_frame_filter/templates/field--image.tpl.php
+ * NOTE:
+ *     The templates can be copied & modified in the site theme, to
+ *     change which fields are displayed or how they are displayed.
+ */
+
+
+
+/**
+ * Implements hook_menuhook_menu() to set up the URLs (menu entries).
+ * API: http://api.drupal.org/api/drupal/modules!system!system.api.php/function/hook_menu/7
+ *
+ * NOTES:
+ * The parameter "file" is sent as argument to the page "callback" function,
+ * which forwards it to the template.
+ * The file is load using the function "file_load" using the value specified
+ * in the URL;
+ *     "...fileinfo/11" will call _eatlas_media_frame_filter_file_info(file_load(11))
+ *
+ * The function used to load the object depend on the name after the % in the
+ * path. For example:
+ *     "...fileinfo/%something" would call "something_load()" function
+ *     instead of "file_load()"
+ */
+function eatlas_media_frame_filter_menu() {
+	// http://drupal.stackexchange.com/questions/38576/page-which-display-only-content-no-header-footer-sidebars
+	$items = array();
+	// Template override: html--eatlas-mediaframe-fileinfo.tpl.php and page--eatlas-mediaframe-fileinfo.tpl.php
+	$items['eatlas_mediaframe_fileinfo/%file'] = array(
+		'page callback' => '_eatlas_media_frame_filter_file_info', // Name of the function to call
+		'page arguments' => array(1), // The parameter "file" loaded with "file_load"
+		'access callback' => '_eatlas_media_frame_media_access_callback', // name of a function that check if the user is logged
+		'access arguments' => array('view') // view or edit - the page only show info
+	);
+
+	$items['eatlas_mediaframe_fileurl/%file'] = array(
+		'page callback' => '_eatlas_media_frame_filter_file_url', // Name of the function to call
+		'page arguments' => array(1), // The parameter "file" loaded with "file_load"
+		'access callback' => '_eatlas_media_frame_media_access_callback', // name of a function that check if the user is logged
+		'access arguments' => array('view') // view or edit - the page only show info
+	);
+
+	return $items;
+}
+
+/**
+ * Implements hook_theme()
+ * Tells Drupal to use the templates in this module when the site theme
+ * is not overriding them.
+ *     html__eatlas_mediaframe_fileinfo => templates/html--eatlas-mediaframe-fileinfo.tpl.php
+ *     page__eatlas_mediaframe_fileinfo => templates/page--eatlas-mediaframe-fileinfo.tpl.php
+ *     field__image              => templates/field--image.tpl.php
+ *
+ * NOTE: Those templates are hooks defined in Drupal:
+ *     "html__eatlas_mediaframe_fileinfo" and "page__eatlas_mediaframe_fileinfo"
+ *     are html--[page].tpl.php and page--[page].tpl.php
+ *     and "field__image" / "field__media" is field--[field-type].tpl.php.
+ *     See: http://drupal.org/node/1089656
+ */
+function eatlas_media_frame_filter_theme() {
+	$templatesPath = drupal_get_path('module', 'eatlas_media_frame_filter') .'/templates';
+	return array(
+		'html__eatlas_mediaframe_fileinfo' => array(
+			'arguments' => array('content' => NULL),
+			'template' => 'html--eatlas-mediaframe-fileinfo',
+			'path' => $templatesPath
+		),
+		'page__eatlas_mediaframe_fileinfo' => array(
+			'arguments' => array('content' => NULL),
+			'template' => 'page--eatlas-mediaframe-fileinfo',
+			'path' => $templatesPath
+		),
+
+		'field__image' => array(
+			'arguments' => array('content' => NULL),
+			'template' => 'field--image',
+			'path' => $templatesPath
+		),
+		'field__file' => array(
+			'arguments' => array('content' => NULL),
+			'template' => 'field--file',
+			'path' => $templatesPath
+		),
+		// Deprecated field
+		'field__media' => array(
+			'arguments' => array('content' => NULL),
+			'template' => 'field--media',
+			'path' => $templatesPath
+		)
+	);
+}
+
+function _eatlas_media_frame_media_access_callback($op) {
+	// "file_entity_access" should be used, but it's not defined in
+	// all version of the Media module. The function "user_access"
+	// is less specific (do not allow to check file individually)
+	// but should always works since it's a core function.
+	// "media_access" is deprecated.
+	return user_is_logged_in() && (user_access('administer media') || user_access($op . ' media'));
+}
+
+/**
+ * Set the variables needed by the template.
+ * The variables are access in the template using:
+ *     $page['content']['system_main'][<variable name>]
+ */
+function _eatlas_media_frame_filter_file_info($file) {
+	return array('file' => $file);
+}
+
+function _eatlas_media_frame_filter_get_image_style_url($fileUri, $imagestyle) {
+	$imagestyle = _eatlas_media_frame_filter_get_internal_style($imagestyle);
+	return $imagestyle ? image_style_url($imagestyle, $fileUri) : file_create_url($fileUri);
+}
+
+function _eatlas_media_frame_filter_file_url($file, $imagestyle) {
+	drupal_json_output(array('url' => _eatlas_media_frame_filter_get_image_style_url($file->uri, $imagestyle)));
+	drupal_exit();
+}
+
+function _eatlas_media_frame_filter_get_internal_style($imagestyle) {
+	if ($imagestyle === 'media_preview') {
+		return 'square_thumbnail';
+	}
+	if ($imagestyle === 'media_large') {
+		return 'large';
+	}
+	if ($imagestyle === 'media_original') {
+		return '';
+	}
+	return $imagestyle;
+}
+
+?>

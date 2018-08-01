@@ -1,0 +1,26 @@
+; $Id$
+name = eAtlas Media frame filter
+description = [eatlas_media_frame_filter] Filter that add frame around media elements.
+core = 7.x
+
+files[] = eatlas_media_frame_filter.module
+files[] = includes/MediaFrameAbstractFileWrapper.inc
+files[] = includes/MediaFrameFileArrayWrapper.inc
+files[] = includes/MediaFrameFileObjectWrapper.inc
+
+package = eAtlas
+
+dependencies[] = wysiwyg
+dependencies[] = media
+
+stylesheets[all][] = css/eatlas_media_frame_filter_style.css
+
+scripts[] = js/CKEditor_media_tab.js
+scripts[] = js/wysiwyg-media-override.js
+scripts[] = js/eatlas_media_frame_filter_mediaframe_tile.js
+
+; Attributes used by the update module.
+; There fields needs to be removed if the module is migrated to Drupal.org
+project status url = "http://drupal.eatlas.org.au/modules/eatlas"
+version = "7.x-1.10"
+project = "eatlas_media_frame_filter"

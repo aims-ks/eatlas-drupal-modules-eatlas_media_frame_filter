@@ -1,0 +1,493 @@
+<?php
+
+/**
+ * Implements hook_install().
+ */
+function eatlas_media_frame_filter_install() {
+	// Attach fields to the media gallery node type.
+	foreach (_media_gallery_controlled_instances() as $instance) {
+		_media_gallery_ensure_instance($instance);
+	}
+}
+
+/*
+function _media_frame_controlled_instances() {
+	$t = get_t();
+
+	// TODO KEEP / DEFINE ONLY THE FIELDS DEFINED IN _media_frame_controlled_fields
+
+	$node_instances = array(
+		// The gallery description.
+		'media_gallery_description' => array(
+			'field_name' => 'media_gallery_description',
+			'label' => $t('Description'),
+			'widget' => array(
+				'type' => 'text_textarea',
+				'settings' => array('rows' => 4),
+			),
+			'settings' => array(
+				'text_processing' => 1,
+			),
+			'display' => array(
+				'default' => array(
+					'type' => 'text_default',
+					'label' => 'hidden',
+					'weight' => 0,
+				),
+				'full' => array(
+					'type' => 'text_default',
+					'label' => 'hidden',
+					'weight' => 0,
+				),
+				'teaser' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+					'weight' => 0,
+				),
+				'media_gallery_block' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+					'weight' => 0,
+				),
+			),
+		),
+		'media_gallery_media' => array(
+			'field_name' => 'media_gallery_media',
+			'label' => $t('Gallery media'),
+			'widget' => array(
+				'type' => 'media_generic',
+				'settings' => array(
+					// Eventually other media types will be allowed.
+					'allowed_types' => array('audio' => 'audio', 'image' => 'image', 'video' => 'video'),
+					'allowed_schemes' => array('public' => 'public'),
+				),
+			),
+			'display' => array(
+				'default' => array(
+					'type' => 'media_gallery',
+					'settings' => array('file_view_mode' => 'media_gallery_thumbnail'),
+					'label' => 'hidden',
+					'weight' => 2,
+				),
+				'full' => array(
+					'type' => 'media_gallery',
+					'settings' => array('file_view_mode' => 'media_gallery_thumbnail'),
+					'label' => 'hidden',
+					'weight' => 2,
+				),
+				'teaser' => array(
+					'type' => 'media_gallery',
+					'settings' => array('file_view_mode' => 'media_gallery_collection_thumbnail'),
+					'label' => 'hidden',
+					'weight' => 2,
+				),
+				'media_gallery_block' => array(
+					'type' => 'media_gallery',
+					'settings' => array('file_view_mode' => 'media_gallery_block_thumbnail'),
+					'label' => 'hidden',
+					'weight' => 2,
+				),
+			),
+		),
+		// How to format the gallery (if links go to lightbox or node display).
+		'media_gallery_format' => array(
+			'field_name' => 'media_gallery_format',
+			'label' => $t('Gallery format'),
+			'required' => TRUE,
+			'default_value' => array(array('value' => 'lightbox')),
+			'display' => array(
+				'default' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'full' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'teaser' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'media_gallery_block' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+			),
+			'widget' => array(
+				'type' => 'options_buttons',
+			),
+		),
+		// Whether to show a "Exclude title and description" checkbox.
+		'media_gallery_lightbox_extras' => array(
+			'field_name' => 'media_gallery_lightbox_extras',
+			'label' => 'Lightbox title and description',
+			'description' => $t('Show title and description'),
+			'default_value' => array(array('value' => 0)),
+			'widget' => array(
+				'type' => 'options_onoff',
+			),
+			'display' => array(
+				'default' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'full' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'teaser' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'media_gallery_block' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+			),
+		),
+		// How many columns to show.
+		'media_gallery_columns' => array(
+			'field_name' => 'media_gallery_columns',
+			'label' => $t('Number of columns'),
+			'default_value' => array(array('value' => 4)),
+			'required' => TRUE,
+			'widget' => array(
+				'type' => 'options_select',
+			),
+			'display' => array(
+				'default' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'full' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'teaser' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'media_gallery_block' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+			),
+		),
+		// How many rows to show.
+		'media_gallery_rows' => array(
+			'field_name' => 'media_gallery_rows',
+			'label' => $t('Number of rows'),
+			'default_value' => array(array('value' => 3)),
+			'settings' => array(
+				'min' => '1',
+			),
+			'required' => TRUE,
+			'widget' => array(
+				'type' => 'number',
+			),
+			'display' => array(
+				'default' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'full' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'teaser' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'media_gallery_block' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+			),
+		),
+		// Whether to show title/license on hover or below thumbnail.
+		'media_gallery_image_info_where' => array(
+			'field_name' => 'media_gallery_image_info_where',
+			'label' => $t('Media information'),
+			'required' => TRUE,
+			'default_value' => array(array('value' => 'hover')),
+			'widget' => array(
+				'type' => 'options_select',
+			),
+			'display' => array(
+				'default' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'full' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'teaser' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'media_gallery_block' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+			),
+		),
+		// Whether to show a "Download original image" checkbox.
+		'media_gallery_allow_download' => array(
+			'field_name' => 'media_gallery_allow_download',
+			'label' => $t('Allow downloading of the original image'),
+			'description' => $t('Display a "download original image" link'),
+			'default_value' => array(array('value' => 1)),
+			'widget' => array(
+				'type' => 'options_onoff',
+			),
+			'display' => array(
+				'default' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'full' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'teaser' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'media_gallery_block' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+			),
+		),
+		// Whether to expose a block for this gallery.
+		'media_gallery_expose_block' => array(
+			'field_name' => 'media_gallery_expose_block',
+			'label' => $t('Create a block of most recently added media'),
+			'default_value' => array(array('value' => 0)),
+			'widget' => array(
+				'type' => 'options_onoff',
+			),
+			'display' => array(
+				'default' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'full' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'teaser' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'media_gallery_block' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+			),
+		),
+		// How many columns to show in the block.
+		'media_gallery_block_columns' => array(
+			'field_name' => 'media_gallery_block_columns',
+			'label' => $t('Number of columns'),
+			'default_value' => array(array('value' => 2)),
+			'required' => TRUE,
+			'widget' => array(
+				'type' => 'options_select',
+			),
+			'display' => array(
+				'default' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'full' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'teaser' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'media_gallery_block' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+			),
+		),
+		// How many rows to show in the block.
+		'media_gallery_block_rows' => array(
+			'field_name' => 'media_gallery_block_rows',
+			'label' => $t('Number of rows'),
+			'default_value' => array(array('value' => 3)),
+			'required' => TRUE,
+			'settings' => array(
+				'min' => 1,
+			),
+			'widget' => array(
+				'type' => 'number',
+			),
+			'display' => array(
+				'default' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'full' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'teaser' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'media_gallery_block' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+			),
+		),
+		// The 'collection' tag field on media gallery nodes.
+		'media_gallery_collection' => array(
+			'field_name' => 'media_gallery_collection',
+			'label' => $t('Gallery collection'),
+			'default_value' => array(
+				array(
+					'tid' => variable_get('media_gallery_default_collection_tid'),
+				),
+			),
+			'display' => array(
+				'default' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+				'teaser' => array(
+					'type' => 'hidden',
+					'label' => 'hidden',
+				),
+			),
+		),
+	);
+	foreach ($node_instances as &$instance) {
+		$instance['entity_type'] = 'node';
+		$instance['bundle'] = 'eatlas_media_frame_filter';
+	}
+	unset($instance);
+
+	return $node_instances;
+}*/
+
+
+
+/**
+ * Implements hook_requirements().
+ * Inspired on media_gallery module
+ */
+function eatlas_media_frame_filter_requirements() {
+	$requirements = array();
+
+	// If this module is part of an install profile, its requirements will be
+	// checked before the field system is available. The rest of this function is
+	// unneeded anyway in that case, so bail out here to avoid fatal errors.
+	if (!module_exists('field')) {
+		return $requirements;
+	}
+
+	$required_fields = _eatlas_media_frame_controlled_fields();
+	return $requirements;
+}
+
+/**
+ * Returns definitions for fields this module both creates.
+ */
+function _eatlas_media_frame_controlled_fields() {
+	$fields = array(
+		// Fields to create on media items.
+
+		// *** Field shared with media_gallery module ***
+		'media_title' => array(
+			'field_name' => 'media_title',
+			'locked' => TRUE,
+			'type' => 'text',
+		),
+
+		// *** Field shared with media_gallery module ***
+		'media_description' => array(
+			'field_name' => 'media_description',
+			'locked' => TRUE,
+			'type' => 'text_long',
+		),
+
+		// Allow override the description when it's too long to be displayed with the preview image
+		'field_short_description' => array(
+			'field_name' => 'field_short_description',
+			'locked' => TRUE,
+			'type' => 'text',
+		),
+
+		// *** Field shared with media_gallery module ***
+		'field_license' => array(
+			'field_name' => 'field_license',
+			'locked' => TRUE,
+			'settings' => array(
+				'allowed_values_function' => '_eatlas_media_frame_get_field_license_values',
+			),
+			'type' => 'list_text',
+			'active' => TRUE,
+			'cardinality' => 1,
+		),
+
+		// Use can specified a different license when the dropdown do not list it
+		'field_custom_license' => array(
+			'field_name' => 'field_custom_license',
+			'locked' => TRUE,
+			'type' => 'text',
+		),
+		// TODO: Create a field type "node_reference" binded to node
+		//     type "person" if "node_reference" module is install &
+		//     available and the node type "person" exists.
+		//     It would also be nice to be able to configure the
+		//     node type it is binded to.
+		// NOTE: That solution add a lot of complications.
+		//     Simple workaround: create a node type text (unlocked),
+		//     that offer to the user the opportunity to delete it and
+		//     recreate it using a "node_reference" field binded to the
+		//     desired node type.
+		'field_attribution' => array(
+			'field_name' => 'field_attribution',
+			'locked' => FALSE, // Unlocked to allow the user to bind it to a node type
+			'type' => 'text',
+		),
+		'field_custom_attribution' => array(
+			'field_name' => 'field_custom_attribution',
+			'locked' => TRUE,
+			'type' => 'text',
+		),
+		'field_notes' => array(
+			'field_name' => 'field_notes',
+			'locked' => TRUE,
+			'type' => 'long_text',
+		)
+	);
+
+	return $fields;
+}
+
+/**
+ * Allowed values callback for field_license list field.
+ * 
+ * Stolen from media_gallery module
+ */
+function _eatlas_media_frame_get_field_license_values() {
+	return array(
+		'none' => t('None (all rights reserved)'),
+		'' => t('-- Creative Commons --'),
+		'cc_sa_nc' => t('Attribution, Non-Commercial, Share Alike'),
+		'cc_nc' => t('Attribution, Non-Commercial'),
+		'cc_nd_nc' => t('Attribution, Non-Commercial, No Derivative Works'),
+		'cc' => t('Attribution'),
+		'cc_sa' => t('Attribution, Share Alike'),
+		'cc_nd' => t('Attribution, No Derivative Works'),
+	);
+}
+
+?>

@@ -1,0 +1,280 @@
+/**
+ * Set display to flex when the parent is set to flex.
+ * - Setting display flex when parent is not flex prevent the image from been centred (text-align: center).
+ * - Letting display to its default value prevent images frame from been uniformed (height stretched) when parent as display flex (the wrapper swallow the stretch).
+ */
+div.wysiwyg-media-file-wrapper {
+	display: inherit;
+}
+
+div.wysiwyg-media-file {
+	display: inline-block; /* Imitate the behaviour of image */
+	line-height: 0; /* The line height interfer with placement of inner elements */
+
+	/* Hack to force IE <= 7 to apply display:inline-block */
+	*display: inline; /* Ignored by other browsers than IE <= 7 */
+	zoom: 1; /* Trigger "hasLayout" behaviour */
+}
+
+div.wysiwyg-media-file div {
+	line-height: normal; /* Restoration of line height for text */
+}
+div.wysiwyg-media-file div.title,
+div.wysiwyg-media-file span.license,
+div.wysiwyg-media-file div.description {
+	margin: 0 0.3em 0.1em 0.3em;
+	font-size: 0.8em;
+}
+div.wysiwyg-media-file div.title {
+	display: none; /* Only displayed on specific style, like onImage */
+}
+div.wysiwyg-media-file span.license,
+div.wysiwyg-media-file div.description {
+	display: block;
+}
+div.wysiwyg-media-file span.license {
+	margin-top: 0.2em;
+}
+
+/* Remove margin before and after the description, but not between paragraphs. */
+#main-content div.wysiwyg-media-file div.description p:first-child,
+div.wysiwyg-media-file div.description p:first-child {
+	margin-top: 0.2em;
+}
+#main-content div.mediaframe_onImage div.description p:first-child,
+div.mediaframe_onImage div.description p:first-child {
+	margin-top: 0;
+}
+#main-content div.wysiwyg-media-file div.description p:last-child,
+div.wysiwyg-media-file div.description p:last-child {
+	margin-bottom: 0;
+}
+
+/* Remove padding bellow the image, added for the font. There is no text in that element. */
+div.wysiwyg-media-file div.image {
+	line-height: 0;
+}
+
+/* white-space: nowrap => http://www.w3.org/TR/css3-text/#white-space */
+div.wysiwyg-media-file span.license span.custom-licence-name {
+	white-space: nowrap;
+	font-style: italic;
+}
+div.wysiwyg-media-file span.license span.attribution-text {
+	white-space: nowrap;
+}
+
+
+/* Wikipedia style */
+
+div.mediaframe_wikipedia div.image {
+	background-color: #FFFFFF;
+}
+
+/* Show the enlarge icon above the image */
+div.image {
+	position: relative; /* This is ignored by IE6. We don't support IE6. */
+}
+div.image div.enlarge {
+	position: absolute;
+	top: 4px;
+	right: 4px;
+}
+
+/* Define frame / image border similar to Wikipedia */
+div.mediaframe_wikipedia,
+div.mediaframe_gallery {
+	text-align: left;
+	border: 1px solid #CCCCCC;
+	padding: 3px;
+	background-color: #F9F9F9;
+
+	box-shadow: 3px 3px 10px #888888;
+}
+div.mediaframe_wikipedia div.image img,
+div.mediaframe_gallery div.image img {
+	border: 1px solid #CCCCCC;
+}
+
+/* Gallery: Centre the image in the square frame */ 
+div.mediaframe_gallery div.image {
+	width: 220px;
+	height: 220px;
+	background-repeat: no-repeat;
+	background-position: center center;
+	background-size: contain;
+}
+div.mediaframe_gallery div.image a {
+	display: inline-block;
+	width: 100%;
+	height: 100%;
+}
+
+div.mediaframe_wikipedia div.description,
+div.mediaframe_gallery div.description {
+	color: #666666;
+}
+div.mediaframe_wikipedia span.license,
+div.mediaframe_gallery span.license {
+	text-align: right;
+	color: #999999;
+}
+/* Lower Creative Commons logo to align it with the text */
+div.mediaframe_wikipedia span.license img.cc,
+div.mediaframe_gallery span.license img.cc {
+	margin-bottom: -4px;
+}
+
+.media-gallery-notes {
+	clear: both;
+}
+
+/* Small icon in the lower left corner to see image metadata, when the image already has a link on it. */
+div.image div.enlarge a {
+	display: block;
+	float: left;
+
+	width: 51px;
+	height: 51px;
+
+	background-image: url('../img/enlarge_large.png');
+	background-repeat: no-repeat;
+}
+div.image div.enlarge_disabled a {
+	background-image: url('../img/enlarge-disabled_large.png');
+}
+/* Hide the restricted enlarge icon for anonymous users */
+.not-logged-in div.enlarge_disabled {
+	display: none;
+}
+
+/* Metadata on image style */
+
+div.mediaframe_onImage {
+	text-align: left;
+	position: relative; /* Set the reference for "position:absolute" of "div.metadata" */
+}
+div.mediaframe_onImage .metadata {
+	position: absolute;
+	bottom: 0; /* Display the metadata at the bottom of the image */
+	width: 100%;
+
+	background: rgb(4, 110, 156); /* Fall-back for browsers that don't support rgba */
+	background: rgba(4, 110, 156, 0.5);
+}
+
+/* Add this on your theme IE <= 8 style sheet to apply transparency on
+	the whole metadata div - IE <= 8 do not support "rgba"
+div.mediaframe_onImage .metadata {
+	filter: alpha(opacity=60);
+}
+*/
+
+div.mediaframe_onImage div.title {
+	display: block;
+	color: #FFFFFF;
+	padding: 0.1em 0.3em 0.3em 0.3em;
+}
+div.mediaframe_onImage div.description,
+div.mediaframe_onImage span.license {
+	display: none;
+}
+
+/* Tile image style */
+
+div.mediaframe_tile {
+	display: inline-block;
+	border: 1px solid #d4d4d4;
+	background-color: #FFFFFF;
+}
+
+div.mediaframe_tile .metadata {
+	display: block;
+}
+
+div.mediaframe_tile div.title {
+	display: block;
+	padding: 0.5em 1em;
+	font-weight: bold;
+	font-size: 1em;
+}
+
+
+/* Define page-mediaframe-fileinfo element; a IFRAME shown in CKEditor media tab (image property dialog) */
+
+input.disabled,
+textarea.disabled {
+	background-color: #EEEEEE !important; /* Override CKEditor style */
+}
+
+body.page-mediaframe-fileinfo {
+	padding: 0 !important; /* Override drupal admin menu (toolbar) style */
+	margin: 0;
+	background: none;
+
+	/* Same look than CKEditor */
+	color: #000000;
+	font-size: 12px;
+	font-family: Arial,Helvetica,Tahoma,Verdana,Sans-Serif;
+}
+body.page-mediaframe-fileinfo .block {
+	padding: 0;
+	margin: 0;
+}
+body.page-mediaframe-fileinfo label {
+	display: inline;
+}
+body.page-mediaframe-fileinfo div {
+	margin: 0 0 1.5em 0;
+}
+body.page-mediaframe-fileinfo div p {
+	margin: 0 0 0.5em 0;
+}
+body.page-mediaframe-fileinfo .undefined .value {
+	color: #999999;
+	font-style: italic;
+}
+.iframe-mediaframe-fileinfo {
+	width: 100% !important; /* Override CKEditor style */
+	height: 200px !important; /* Override CKEditor style */
+}
+
+/* The default margin for the Gallery is ugly; there is no left margin */
+.mg-col {
+	margin: 0 0.2em !important;
+}
+
+
+/* Div surrounding multiple image */
+div.mediaframe_wikipedia_imgframeblk {
+	text-align: left;
+	display: inline-block;
+	color: #666666;
+	font-size: 0.8em;
+	line-height: normal;
+	background-color: #F9F9F9;
+	border: 1px solid #CCCCCC;
+	padding: 5px;
+	box-shadow: 3px 3px 10px #888888;
+}
+div.mediaframe_wikipedia_imgframeblk > p {
+	margin: 0.5em 0.3em 0.1em 0.3em !important;
+}
+div.mediaframe_wikipedia_imgframeblk div {
+	box-shadow: none;
+}
+div.mediaframe_wikipedia_imgframeblk .metadata .description,
+div.mediaframe_wikipedia_imgframeblk .metadata .license {
+	font-size: 1em;
+}
+
+/* Hide image style widgets - Always use the default "Original" */
+/* When inserting an image (option on the "confirm" page) */
+#media-format-form .form-item-format {
+	display: none;
+}
+
+/* When editing an image (right-click > properties, "Frame info" tab) */
+.eatlas-media-frame-filter-image-style-select.cke_disabled {
+	display: none;
+}
