@@ -9,4 +9,4 @@ creator = Gael Lafond
 ;   This variable is an array, one cell per element. Use "\n" for new lines.
 ;   Those properties are used with release_notes and tags.
 ;   See: https://www.drupal.org/documentation/releases/types
-Bug fixes[] = Apply styles such as margin to a parent div (wysiwyg-media-file-wrapper), to fix issues with frame stretching out of page bounds on mobile devices.
+Bug fixes[] = Better integration with module eatlas_spatial_publisher.
