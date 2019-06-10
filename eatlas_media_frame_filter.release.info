@@ -9,4 +9,4 @@ creator = Gael Lafond
 ;   This variable is an array, one cell per element. Use "\n" for new lines.
 ;   Those properties are used with release_notes and tags.
 ;   See: https://www.drupal.org/documentation/releases/types
-Bug fixes[] = Added link on the metadata block for images that use the "onImage" media style.
+Bug fixes[] = Fixed the metadata block for "onImage" and "tile" media style. The HTML was invalid (block elements where inline elements were expected) causing the browser to reorganise elements which was breaking the CSS.

@@ -7,9 +7,13 @@ div.wysiwyg-media-file-wrapper {
 	display: inherit;
 }
 
+div.wysiwyg-media-file-wrapper a {
+	text-decoration: none;
+}
+
 div.wysiwyg-media-file {
 	display: inline-block; /* Imitate the behaviour of image */
-	line-height: 0; /* The line height interfer with placement of inner elements */
+	line-height: 0; /* The line height interfere with placement of inner elements */
 
 	/* Hack to force IE <= 7 to apply display:inline-block */
 	*display: inline; /* Ignored by other browsers than IE <= 7 */
@@ -19,34 +23,34 @@ div.wysiwyg-media-file {
 div.wysiwyg-media-file div {
 	line-height: normal; /* Restoration of line height for text */
 }
-div.wysiwyg-media-file div.title,
-div.wysiwyg-media-file span.license,
-div.wysiwyg-media-file div.description {
+div.wysiwyg-media-file .title,
+div.wysiwyg-media-file .license,
+div.wysiwyg-media-file .description {
 	margin: 0 0.3em 0.1em 0.3em;
 	font-size: 0.8em;
 }
-div.wysiwyg-media-file div.title {
+div.wysiwyg-media-file .title {
 	display: none; /* Only displayed on specific style, like onImage */
 }
-div.wysiwyg-media-file span.license,
-div.wysiwyg-media-file div.description {
+div.wysiwyg-media-file .license,
+div.wysiwyg-media-file .description {
 	display: block;
 }
-div.wysiwyg-media-file span.license {
+div.wysiwyg-media-file .license {
 	margin-top: 0.2em;
 }
 
 /* Remove margin before and after the description, but not between paragraphs. */
-#main-content div.wysiwyg-media-file div.description p:first-child,
-div.wysiwyg-media-file div.description p:first-child {
+#main-content div.wysiwyg-media-file .description p:first-child,
+div.wysiwyg-media-file .description p:first-child {
 	margin-top: 0.2em;
 }
-#main-content div.mediaframe_onImage div.description p:first-child,
-div.mediaframe_onImage div.description p:first-child {
+#main-content div.mediaframe_onImage .description p:first-child,
+div.mediaframe_onImage .description p:first-child {
 	margin-top: 0;
 }
-#main-content div.wysiwyg-media-file div.description p:last-child,
-div.wysiwyg-media-file div.description p:last-child {
+#main-content div.wysiwyg-media-file .description p:last-child,
+div.wysiwyg-media-file .description p:last-child {
 	margin-bottom: 0;
 }
 
@@ -56,11 +60,11 @@ div.wysiwyg-media-file div.image {
 }
 
 /* white-space: nowrap => http://www.w3.org/TR/css3-text/#white-space */
-div.wysiwyg-media-file span.license span.custom-licence-name {
+div.wysiwyg-media-file .license span.custom-licence-name {
 	white-space: nowrap;
 	font-style: italic;
 }
-div.wysiwyg-media-file span.license span.attribution-text {
+div.wysiwyg-media-file .license span.attribution-text {
 	white-space: nowrap;
 }
 
@@ -110,18 +114,18 @@ div.mediaframe_gallery div.image a {
 	height: 100%;
 }
 
-div.mediaframe_wikipedia div.description,
-div.mediaframe_gallery div.description {
+div.mediaframe_wikipedia .description,
+div.mediaframe_gallery .description {
 	color: #666666;
 }
-div.mediaframe_wikipedia span.license,
-div.mediaframe_gallery span.license {
+div.mediaframe_wikipedia .license,
+div.mediaframe_gallery .license {
 	text-align: right;
 	color: #999999;
 }
 /* Lower Creative Commons logo to align it with the text */
-div.mediaframe_wikipedia span.license img.cc,
-div.mediaframe_gallery span.license img.cc {
+div.mediaframe_wikipedia .license img.cc,
+div.mediaframe_gallery .license img.cc {
 	margin-bottom: -4px;
 }
 
@@ -170,13 +174,13 @@ div.mediaframe_onImage .metadata {
 }
 */
 
-div.mediaframe_onImage div.title {
+div.mediaframe_onImage .title {
 	display: block;
 	color: #FFFFFF;
 	padding: 0.1em 0.3em 0.3em 0.3em;
 }
-div.mediaframe_onImage div.description,
-div.mediaframe_onImage span.license {
+div.mediaframe_onImage .description,
+div.mediaframe_onImage .license {
 	display: none;
 }
 
@@ -192,7 +196,7 @@ div.mediaframe_tile .metadata {
 	display: block;
 }
 
-div.mediaframe_tile div.title {
+div.mediaframe_tile .title {
 	display: block;
 	padding: 0.5em 1em;
 	font-weight: bold;
