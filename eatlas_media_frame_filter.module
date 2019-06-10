@@ -460,14 +460,6 @@ function eatlas_media_frame_decorate($element, $attributes = NULL, $link = NULL,
 		$linkOpen = ($imageLink ? "<a href=\"$imageLink\"" . ($target ? " target=\"$target\"" : "") . ">" : "");
 		$linkClose = ($imageLink ? "</a>" : "");
 
-		$metadataBlockOpen = (
-			$imageLink ?
-			"<a href=\"$imageLink\" class=\"metadata\" style=\"$metadataStyle\"" . ($target ? " target=\"$target\"" : "") . ">" :
-			"<div class=\"metadata\" style=\"$metadataStyle\">"
-		);
-		$metadataBlockClose = ($imageLink ? "</a>" : "</div>");
-
-
 		if ($mediaStyle === 'tile') {
 			$output = "<div style=\"$frameStyle\" class=\"$cssClass mediaframe_$mediaStyle wysiwyg-media-file".($showMetadata ? "" : " noMetadata")."\">" .
 						"<div class=\"image\">" .
@@ -478,9 +470,11 @@ function eatlas_media_frame_decorate($element, $attributes = NULL, $link = NULL,
 								($showEnlargeIcon && $enlargeURL ? "<div class=\"enlarge" . ($enlargeIconIsPrivate ? " enlarge_disabled" : "") . "\"><a href=\"$enlargeURL\" title=\"Enlarge\"></a></div>" : "") .
 							"</div>" .
 						"</div>" .
-						$metadataBlockOpen .
-							($title ? "<div class=\"title\">$title</div>" : "") .
-						$metadataBlockClose .
+						"<div class=\"metadata\" style=\"$metadataStyle\">" .
+							$linkOpen .
+								($title ? "<span class=\"title\">$title</span>" : "") .
+							$linkClose .
+						"</div>" .
 					"</div>";
 		} else {
 			$output = "<div style=\"$frameStyle\" class=\"wysiwyg-media-file-wrapper\">" .
@@ -491,12 +485,14 @@ function eatlas_media_frame_decorate($element, $attributes = NULL, $link = NULL,
 								($imageLink ? "</a>" : "") .
 								($showEnlargeIcon && $enlargeURL ? "<div class=\"enlarge" . ($enlargeIconIsPrivate ? " enlarge_disabled" : "") . "\"><a href=\"$enlargeURL\" title=\"Enlarge\"></a></div>" : "") .
 							"</div>" .
-							$metadataBlockOpen .
+							"<div class=\"metadata\" style=\"$metadataStyle\">" .
+								$linkOpen .
+									($title ? "<span class=\"title\">$title</span>" : "") .
+								$linkClose .
 								// NOTE: Description needs to be a block element (div) because it contains block elements (p, div, ul, etc.)
-								($title ? "<div class=\"title\">$title</div>" : "") .
 								($description ? "<div class=\"description\">$description</div>" : "") .
 								($licenseHtml ? "<span class=\"license\">$licenseHtml</span>" : "") .
-							$metadataBlockClose .
+							"</div>" .
 						"</div>" .
 					"</div>";
 		}
