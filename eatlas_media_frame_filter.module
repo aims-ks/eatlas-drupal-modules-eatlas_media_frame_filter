@@ -457,23 +457,30 @@ function eatlas_media_frame_decorate($element, $attributes = NULL, $link = NULL,
 				"typeof=\"foaf:Image\" " . // RDFa annotation, for semantique
 				"src=\"$fileURL\" />";
 
+		$linkOpen = ($imageLink ? "<a href=\"$imageLink\"" . ($target ? " target=\"$target\"" : "") . ">" : "");
+		$linkClose = ($imageLink ? "</a>" : "");
+
+		$metadataBlockOpen = (
+			$imageLink ?
+			"<a href=\"$imageLink\" class=\"metadata\" style=\"$metadataStyle\"" . ($target ? " target=\"$target\"" : "") . ">" :
+			"<div class=\"metadata\" style=\"$metadataStyle\">"
+		);
+		$metadataBlockClose = ($imageLink ? "</a>" : "</div>");
+
+
 		if ($mediaStyle === 'tile') {
 			$output = "<div style=\"$frameStyle\" class=\"$cssClass mediaframe_$mediaStyle wysiwyg-media-file".($showMetadata ? "" : " noMetadata")."\">" .
 						"<div class=\"image\">" .
 							"<div class=\"image-cell\">" .
-								($imageLink ? "<a href=\"$imageLink\"" . ($target ? " target=\"$target\"" : "") . ">" : "") .
+								$linkOpen .
 									$preview .
-								($imageLink ? "</a>" : "") .
+								$linkClose .
 								($showEnlargeIcon && $enlargeURL ? "<div class=\"enlarge" . ($enlargeIconIsPrivate ? " enlarge_disabled" : "") . "\"><a href=\"$enlargeURL\" title=\"Enlarge\"></a></div>" : "") .
 							"</div>" .
 						"</div>" .
-						(
-							$imageLink ?
-							"<a href=\"$imageLink\" class=\"metadata\" style=\"$metadataStyle\"" . ($target ? " target=\"$target\"" : "") . ">" :
-							"<div class=\"metadata\" style=\"$metadataStyle\">"
-						) .
+						$metadataBlockOpen .
 							($title ? "<div class=\"title\">$title</div>" : "") .
-						($imageLink ? "</a>" : "</div>") .
+						$metadataBlockClose .
 					"</div>";
 		} else {
 			$output = "<div style=\"$frameStyle\" class=\"wysiwyg-media-file-wrapper\">" .
@@ -484,12 +491,12 @@ function eatlas_media_frame_decorate($element, $attributes = NULL, $link = NULL,
 								($imageLink ? "</a>" : "") .
 								($showEnlargeIcon && $enlargeURL ? "<div class=\"enlarge" . ($enlargeIconIsPrivate ? " enlarge_disabled" : "") . "\"><a href=\"$enlargeURL\" title=\"Enlarge\"></a></div>" : "") .
 							"</div>" .
-							"<div class=\"metadata\" style=\"$metadataStyle\">" .
+							$metadataBlockOpen .
 								// NOTE: Description needs to be a block element (div) because it contains block elements (p, div, ul, etc.)
 								($title ? "<div class=\"title\">$title</div>" : "") .
 								($description ? "<div class=\"description\">$description</div>" : "") .
 								($licenseHtml ? "<span class=\"license\">$licenseHtml</span>" : "") .
-							"</div>" .
+							$metadataBlockClose .
 						"</div>" .
 					"</div>";
 		}

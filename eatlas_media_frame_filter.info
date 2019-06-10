@@ -22,5 +22,5 @@ scripts[] = js/eatlas_media_frame_filter_mediaframe_tile.js
 ; Attributes used by the update module.
 ; There fields needs to be removed if the module is migrated to Drupal.org
 project status url = "http://drupal.eatlas.org.au/modules/eatlas"
-version = "7.x-1.11"
+version = "7.x-1.12"
 project = "eatlas_media_frame_filter"
