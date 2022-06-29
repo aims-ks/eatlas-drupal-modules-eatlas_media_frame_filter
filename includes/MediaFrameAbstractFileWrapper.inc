@@ -13,11 +13,11 @@ abstract class MediaFrameAbstractFileWrapper {
 	}
 
 	public static function getWrapper($element, $attributes) {
-		if (isset($element['#file'])) {
+		if (isset($element['#file']) && is_object($element['#file']) && property_exists($element['#file'], 'fid')) {
 			// WYSIWYG -> $file is an Object
 			return new MediaFrameFileObjectWrapper($element, $attributes);
 		}
-		if (isset($element['#item'])) {
+		if (isset($element['#item']) && is_array($element['#item']) && isset($element['#item']['fid'])) {
 			// Image field -> $file is an Array
 			return new MediaFrameFileArrayWrapper($element, $attributes);
 		}
